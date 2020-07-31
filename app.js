@@ -1,6 +1,11 @@
 const axios = require("axios");
+const rax = require("retry-axios");
+const fs = require("fs");
 
 const URL = "https://findtreasure.app/api/v1";
+
+let treasuresFound = 0;
+let treasuresMissed = 0;
 
 const getNewToken = async () => {
   try {
@@ -36,12 +41,25 @@ const startGame = async (axiosInstance, gameEndPoint) => {
 const getNodeData = async (axiosInstance, url) => {
   try {
     const response = await axiosInstance.get(url);
+    console.log("x-ratelimit-limit", response.headers["x-ratelimit-limit"]);
+    console.log(
+      "x-ratelimit-remaining",
+      response.headers["x-ratelimit-remaining"]
+    );
 
     if (
       response.status === 200 ||
       response.status === 208 ||
       response.status === 302
     ) {
+      if (response.status === 302) {
+        treasuresFound++;
+      }
+
+      if (response.status === 208) {
+        treasuresMissed++;
+      }
+
       return response.data.paths;
     }
 
@@ -64,7 +82,7 @@ const saveNewDataToArray = (currentArray, newData) => {
 };
 
 const run = async () => {
-  const gameStartUrl = "/ileya/start";
+  const gameStartUrl = "/test/start";
   let URLs = [],
     activeNode = "",
     currentIndex = 0;
@@ -79,19 +97,32 @@ const run = async () => {
     },
   });
 
-  const searchUrlData = () => {};
+  axiosInstance.defaults.raxConfig = {
+    instance: axiosInstance,
+    retry: 3,
+    statusCodesToRetry: [[500, 502, 503, 504]],
+  };
 
-  const data = await getNodeData(
-    axiosInstance,
-    "https://findtreasure.app/api/v1/games/ileya/c0e2635c-176d-460c-8f0b-5467db7ee290"
-  );
+  rax.attach(axiosInstance);
+
+  const data = await startGame(axiosInstance, gameStartUrl);
   URLs = await saveNewDataToArray(URLs, data);
+  activeNode = URLs[0];
 
-  URLs.forEach(async (url) => {
-    const data = await getNodeData(axiosInstance, url);
+  while (URLs.length > currentIndex) {
+    console.time("Time Taken");
+    const data = await getNodeData(axiosInstance, activeNode);
     URLs = await saveNewDataToArray(URLs, data);
-    console.log(URLs);
-  });
+    currentIndex++;
+    activeNode = URLs[currentIndex];
+    console.log("Current Index:", currentIndex);
+    console.log("Active Node:", activeNode);
+    console.log("Missed Treasures", treasuresMissed);
+    console.log("Found Treasures", treasuresFound);
+    console.timeEnd("Time Taken");
+    console.log("------------------------------");
+    console.log("------------------------------");
+  }
 };
 
 run();
