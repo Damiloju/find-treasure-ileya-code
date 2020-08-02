@@ -1,6 +1,5 @@
 const axios = require("axios");
 const rax = require("retry-axios");
-const fs = require("fs");
 
 const URL = "https://findtreasure.app/api/v1";
 
