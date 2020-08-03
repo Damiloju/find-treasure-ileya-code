@@ -6,6 +6,26 @@ const gameStartUrl = "games/test/start";
 
 let treasuresFound = 0;
 let treasuresMissed = 0;
+let USED_URLS = [];
+const token = await getNewToken();
+const axiosInstance = axios.create({
+  baseURL: URL,
+  headers: {
+    Authorization: `Bearer ${token}`,
+    gomoney: `08164527760`,
+  },
+  validateStatus: function (status) {
+    return status >= 200 && status < 600; // default
+  },
+});
+
+axiosInstance.defaults.raxConfig = {
+  instance: axiosInstance,
+  retry: 3,
+  statusCodesToRetry: [[500, 502, 503, 504]],
+};
+
+rax.attach(axiosInstance);
 
 const getNewToken = async () => {
   try {
@@ -58,28 +78,6 @@ const getNodeData = async (axiosInstance, urls) => {
 };
 
 const run = async (URLS) => {
-  const token = await getNewToken();
-  let USED_URLS = [];
-
-  const axiosInstance = axios.create({
-    baseURL: URL,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      gomoney: `08164527760`,
-    },
-    validateStatus: function (status) {
-      return status >= 200 && status < 600; // default
-    },
-  });
-
-  axiosInstance.defaults.raxConfig = {
-    instance: axiosInstance,
-    retry: 3,
-    statusCodesToRetry: [[500, 502, 503, 504]],
-  };
-
-  rax.attach(axiosInstance);
-
   console.time("Time Taken");
   const data = await getNodeData(axiosInstance, URLS);
   if (data.limit) {
@@ -91,8 +89,8 @@ const run = async (URLS) => {
       );
     });
   }
+  USED_URLS.push(...URLS);
   const NEXT_URLS = data.URLS.filter((url) => !USED_URLS.includes(url));
-  USED_URLS.push(...NEXT_URLS);
   console.log("Missed Treasures", treasuresMissed);
   console.log("Found Treasures", treasuresFound);
   console.timeEnd("Time Taken");
