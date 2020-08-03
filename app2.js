@@ -25,9 +25,7 @@ const getNewToken = async () => {
 };
 
 const getNodeData = async (axiosInstance, urls) => {
-  const response = await Promise.all(
-    urls.map((url) => axiosInstance.get(url).catch((err) => null))
-  );
+  const response = await Promise.all(urls.map((url) => axiosInstance.get(url)));
 
   let limit = null;
 
@@ -89,13 +87,12 @@ const run = async (URLS) => {
   rax.attach(axiosInstance);
   console.time("Time Taken");
   const data = await getNodeData(axiosInstance, URLS);
-  const NEXT_URLS = [
+  let NEXT_URLS = [
     ...new Set(data.URLS.filter((url) => !USED_URLS.includes(url))),
   ];
   if (data.limit) {
     await new Promise((resolve) => {
       console.log("Waiting for limit");
-      console.log(NEXT_URLS);
       return setTimeout(resolve, 60000);
     });
   }
@@ -114,8 +111,6 @@ const run = async (URLS) => {
     return;
   }
 
-  console.log(USED_URLS);
-  console.log(NEXT_URLS);
   await run(NEXT_URLS);
 };
 
