@@ -24,11 +24,7 @@ const getNewToken = async () => {
   }
 };
 
-const getNodeData = async (axiosInstance, urls) => {
-  const response = await Promise.all(urls.map((url) => axiosInstance.get(url)));
-
-  let limit = null;
-
+const getResolvedURLs = async (response) => {
   let URLS = response
     .filter((res) => {
       if (
@@ -53,15 +49,39 @@ const getNodeData = async (axiosInstance, urls) => {
         return true;
       }
 
-      if (res && res.status === 429) {
-        limit = res;
-      }
-
       return false;
     })
     .map((res) => res.data.paths);
 
   URLS = URLS.flat(1);
+
+  return URLS;
+};
+
+const getRateLimitedURLs = async (response) => {
+  let limit = null;
+
+  const rateLimitedURLs = response
+    .filter((res) => {
+      if (response && res.status === 429) {
+        limit = res;
+
+        return true;
+      }
+      return false;
+    })
+    .map((res) => res.config.url);
+
+  return { rateLimitedURLs, limit };
+};
+
+const getNodeData = async (axiosInstance, urls) => {
+  const response = await Promise.all(urls.map((url) => axiosInstance.get(url)));
+
+  const resolvedURLSPaths = await getResolvedURLs(response);
+  const { rateLimitedURLs, limit } = await getRateLimitedURLs(response);
+
+  const URLS = [...new Set(resolvedURLSPaths.concat(rateLimitedURLs))];
 
   return { URLS, limit };
 };
