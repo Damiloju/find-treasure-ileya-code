@@ -2,7 +2,7 @@ const axios = require("axios");
 const rax = require("retry-axios");
 
 const URL = "https://findtreasure.app/api/v1";
-const gameStartUrl = "games/test/start";
+const gameStartUrl = "https://findtreasure.app/api/v1/games/test/start";
 
 let treasuresFound = 0;
 let treasuresMissed = 0;
@@ -17,32 +17,12 @@ const getNewToken = async () => {
       return response.data.token;
     }
 
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiJkNTUyNzZlOS03OTUyLTQxMmUtYjJiZC0yNGI3YjRlMTIzZGIiLCJlbWFpbCI6Inl1c3VmZGFtaWxvanVAZ21haWwuY29tIiwibmFtZSI6IkRvbmd1biIsImlhdCI6MTU5NjE4OTIyNCwibmJmIjoxNTk2MTg5MjI0LCJleHAiOjE1OTg4Njc2MjR9.A2NyxQz5Oikg3MvGtQIZ72-Jraq5qnk9R52SPlNzhIU";
+    return "";
   } catch (error) {
     console.log(error.message);
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiJkNTUyNzZlOS03OTUyLTQxMmUtYjJiZC0yNGI3YjRlMTIzZGIiLCJlbWFpbCI6Inl1c3VmZGFtaWxvanVAZ21haWwuY29tIiwibmFtZSI6IkRvbmd1biIsImlhdCI6MTU5NjE4OTIyNCwibmJmIjoxNTk2MTg5MjI0LCJleHAiOjE1OTg4Njc2MjR9.A2NyxQz5Oikg3MvGtQIZ72-Jraq5qnk9R52SPlNzhIU";
+    return;
   }
 };
-
-const token = getNewToken();
-const axiosInstance = axios.create({
-  baseURL: URL,
-  headers: {
-    Authorization: `Bearer ${token}`,
-    gomoney: `08164527760`,
-  },
-  validateStatus: function (status) {
-    return status >= 200 && status < 600; // default
-  },
-});
-
-axiosInstance.defaults.raxConfig = {
-  instance: axiosInstance,
-  retry: 3,
-  statusCodesToRetry: [[500, 502, 503, 504]],
-};
-
-rax.attach(axiosInstance);
 
 const getNodeData = async (axiosInstance, urls) => {
   const response = await Promise.all(
@@ -51,28 +31,37 @@ const getNodeData = async (axiosInstance, urls) => {
 
   let limit = null;
 
-  let URLS = response.map((res) => {
-    console.log(res);
-    if (
-      (res && res.status === 200) ||
-      (res && res.status === 208) ||
-      (res && res.status === 302)
-    ) {
-      if (res.status === 302) {
-        treasuresFound++;
+  let URLS = response
+    .filter((res) => {
+      if (
+        (res && res.status === 200) ||
+        (res && res.status === 208) ||
+        (res && res.status === 302)
+      ) {
+        if (res.status === 302) {
+          treasuresFound++;
+        }
+
+        if (res.status === 208) {
+          treasuresMissed++;
+        }
+
+        const item = res.config.url;
+
+        if (USED_URLS.indexOf(item) === -1) {
+          USED_URLS.push(item);
+        }
+
+        return true;
       }
 
-      if (res.status === 208) {
-        treasuresMissed++;
+      if (res && res.status === 429) {
+        limit = res;
       }
 
-      return res.data.paths;
-    }
-
-    if (res && res.status === 429) {
-      limit = res;
-    }
-  });
+      return false;
+    })
+    .map((res) => res.data.paths);
 
   URLS = URLS.flat(1);
 
@@ -80,18 +69,36 @@ const getNodeData = async (axiosInstance, urls) => {
 };
 
 const run = async (URLS) => {
+  const token = await getNewToken();
+  const axiosInstance = axios.create({
+    headers: {
+      Authorization: `Bearer ${token}`,
+      gomoney: `08164527760`,
+    },
+    validateStatus: function (status) {
+      return status >= 200 && status < 600; // default
+    },
+  });
+
+  axiosInstance.defaults.raxConfig = {
+    instance: axiosInstance,
+    retry: 3,
+    statusCodesToRetry: [[500, 502, 503, 504]],
+  };
+
+  rax.attach(axiosInstance);
   console.time("Time Taken");
   const data = await getNodeData(axiosInstance, URLS);
+  const NEXT_URLS = [
+    ...new Set(data.URLS.filter((url) => !USED_URLS.includes(url))),
+  ];
   if (data.limit) {
     await new Promise((resolve) => {
       console.log("Waiting for limit");
-      setTimeout(
-        resolve,
-        new Date(data.limit.headers["x-ratelimit-reset"] * 1000) - new Date()
-      );
+      console.log(NEXT_URLS);
+      return setTimeout(resolve, 60000);
     });
   }
-  const NEXT_URLS = data.URLS.filter((url) => !USED_URLS.includes(url));
   console.log("Missed Treasures", treasuresMissed);
   console.log("Found Treasures", treasuresFound);
   console.timeEnd("Time Taken");
@@ -99,14 +106,17 @@ const run = async (URLS) => {
   console.log("------------------------------");
 
   if (data.limit && NEXT_URLS.length < 1) {
-    NEXT_URLS = URLS;
+    NEXT_URLS = [...URLS];
   }
 
   if (treasuresFound + treasuresMissed === 3 || NEXT_URLS.length < 1) {
     console.timeEnd("Total Time Taken");
     return;
   }
-  run(NEXT_URLS);
+
+  console.log(USED_URLS);
+  console.log(NEXT_URLS);
+  await run(NEXT_URLS);
 };
 
 console.time("Total Time Taken");
