@@ -7,7 +7,24 @@ const gameStartUrl = "games/test/start";
 let treasuresFound = 0;
 let treasuresMissed = 0;
 let USED_URLS = [];
-const token = await getNewToken();
+
+const getNewToken = async () => {
+  try {
+    const response = await axios.post(`${URL}/contestants/refresh`, {
+      email: "yusufdamiloju@gmail.com",
+    });
+    if (response.status === 200) {
+      return response.data.token;
+    }
+
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiJkNTUyNzZlOS03OTUyLTQxMmUtYjJiZC0yNGI3YjRlMTIzZGIiLCJlbWFpbCI6Inl1c3VmZGFtaWxvanVAZ21haWwuY29tIiwibmFtZSI6IkRvbmd1biIsImlhdCI6MTU5NjE4OTIyNCwibmJmIjoxNTk2MTg5MjI0LCJleHAiOjE1OTg4Njc2MjR9.A2NyxQz5Oikg3MvGtQIZ72-Jraq5qnk9R52SPlNzhIU";
+  } catch (error) {
+    console.log(error.message);
+    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiJkNTUyNzZlOS03OTUyLTQxMmUtYjJiZC0yNGI3YjRlMTIzZGIiLCJlbWFpbCI6Inl1c3VmZGFtaWxvanVAZ21haWwuY29tIiwibmFtZSI6IkRvbmd1biIsImlhdCI6MTU5NjE4OTIyNCwibmJmIjoxNTk2MTg5MjI0LCJleHAiOjE1OTg4Njc2MjR9.A2NyxQz5Oikg3MvGtQIZ72-Jraq5qnk9R52SPlNzhIU";
+  }
+};
+
+const token = getNewToken();
 const axiosInstance = axios.create({
   baseURL: URL,
   headers: {
@@ -27,22 +44,6 @@ axiosInstance.defaults.raxConfig = {
 
 rax.attach(axiosInstance);
 
-const getNewToken = async () => {
-  try {
-    const response = await axios.post(`${URL}/contestants/refresh`, {
-      email: "yusufdamiloju@gmail.com",
-    });
-    if (response.status === 200) {
-      return response.data.token;
-    }
-
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiJkNTUyNzZlOS03OTUyLTQxMmUtYjJiZC0yNGI3YjRlMTIzZGIiLCJlbWFpbCI6Inl1c3VmZGFtaWxvanVAZ21haWwuY29tIiwibmFtZSI6IkRvbmd1biIsImlhdCI6MTU5NjE4OTIyNCwibmJmIjoxNTk2MTg5MjI0LCJleHAiOjE1OTg4Njc2MjR9.A2NyxQz5Oikg3MvGtQIZ72-Jraq5qnk9R52SPlNzhIU";
-  } catch (error) {
-    console.log(error.message);
-    return "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiJkNTUyNzZlOS03OTUyLTQxMmUtYjJiZC0yNGI3YjRlMTIzZGIiLCJlbWFpbCI6Inl1c3VmZGFtaWxvanVAZ21haWwuY29tIiwibmFtZSI6IkRvbmd1biIsImlhdCI6MTU5NjE4OTIyNCwibmJmIjoxNTk2MTg5MjI0LCJleHAiOjE1OTg4Njc2MjR9.A2NyxQz5Oikg3MvGtQIZ72-Jraq5qnk9R52SPlNzhIU";
-  }
-};
-
 const getNodeData = async (axiosInstance, urls) => {
   const response = await Promise.all(
     urls.map((url) => axiosInstance.get(url).catch((err) => null))
@@ -51,6 +52,7 @@ const getNodeData = async (axiosInstance, urls) => {
   let limit = null;
 
   let URLS = response.map((res) => {
+    console.log(res);
     if (
       (res && res.status === 200) ||
       (res && res.status === 208) ||
@@ -89,7 +91,6 @@ const run = async (URLS) => {
       );
     });
   }
-  USED_URLS.push(...URLS);
   const NEXT_URLS = data.URLS.filter((url) => !USED_URLS.includes(url));
   console.log("Missed Treasures", treasuresMissed);
   console.log("Found Treasures", treasuresFound);
